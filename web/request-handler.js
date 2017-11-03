@@ -6,56 +6,82 @@ var httpHelpers = require('./http-helpers');
 
 exports.handleRequest = function (req, res) {
   var statusCode = 200;
-  //the targetURL for any request
   var targetURL = archive.paths.archivedSites + req.url;
-  
-  // if you don't have a url requested -> return index.html
 
-  // if url archived does not exist -> return 404 
-    // statuscode = 404  
-  //archive.readListOfUrls();
   var tempURls;
+  
+  
   if (req.method === 'GET') {
-
-    // Get list of fileNames in archives
-        //check if the req.url is in the list
-        // Y -> write the HTML into the body of the response
-          // send back the response
-        // N -> set the Status code to 400
-
+    //initialize the index.html
     if (req.url === '/') {
       targetURL = archive.paths.siteAssets + '/index.html';
       statusCode = 200;
-    } else {
-      // check if url in archive!
-        // e.g /www.google.com
-
-      archive.isUrlArchived(req.url, function(fileExists) {
-        // no idea when this will run...
-        if (!fileExists) {
-          statusCode = 404;
+      
+      fs.readFile(targetURL, function(err, data) {
+        res.writeHead(statusCode, httpHelpers.headers);       
+        res.write(data);
+        res.end();
+      });
+    } else { // if rec.url is not referring to the home page.
+      // search for the file in the archive
+      // console.log('URL ----> ', req.url);
+      archive.isUrlArchived(req.url.slice(1), function(fileExists) { 
+        // if it's in the archive, read and send it back. 
+        if (fileExists) { 
+          fs.readFile(targetURL, function(err, data) {
+            res.writeHead(statusCode, httpHelpers.headers);       
+            res.write(data);
+            res.end();
+          });
+        } else {  // 404 when asked for a nonexistent file
+          res.writeHead(404, httpHelpers.headers);       
+          res.end();
         }
 
-        // if found, run readFile to nab the index html
-        // else, send back loading.html
       });
     }
-    //*******
-    // RUN THIS INSIDE THE CALLBACK WHEN isURl achieved is finished running 
-    fs.readFile(targetURL, function(err, data) {
-      res.writeHead(statusCode, httpHelpers.headers);       
-      //console.log('data------> ', data);
-      
-      res.write(data);
-      res.end();
+  } else if (req.method === 'POST') {
 
+    var body = '';
+    req.on('data', function (chunk) {
+      body += chunk;
     });
-  }
-  // event hash - when isUrlArhived is done, run anon function // 16 ms
-    // - when readFile is done, run anon function passed to it // 18 ms
+    req.on('end', function () {
+      var targetFile = body.slice(4);
+      console.log('target ========>', targetFile);
 
-// event hash - when isUrlArhived is done, run anon function // 16 ms
-    // that runs readFile, then run anon function passed to it // 18 ms
+      targetURL = archive.paths.archivedSites + '/' + targetFile;
+      console.log('=====================>', targetURL);
+      
+      archive.isUrlArchived(targetFile, function(fileExists) { 
+        // if it's in the archive, read and send it back. 
+        
+        console.log('EXISTS --->>', fileExists);
+        if (fileExists) { 
+          fs.readFile(targetURL, function(err, data) {
+            if (err) { 
+              throw err;
+            }
+            res.writeHead(302, httpHelpers.headers);       
+            res.write(data);
+            res.end();
+          });
+        } else {
+          // add the URL to the sites.txt file
+          archive.addUrlToList(targetFile, function() {
+          });
+          //respond with loading.html and update the sites.txt file
+          fs.readFile(archive.paths.siteAssets + '/loading.html', function(err, data) {
+            res.writeHead(302, httpHelpers.headers);       
+            res.write(data);
+            res.end();
+          });
+        }
 
-    
+      });
+        
+    });
+  } 
+
+
 };

@@ -23,19 +23,19 @@ exports.handleRequest = function (req, res) {
           // send back the response
         // N -> set the Status code to 400
 
-    
-
     if (req.url === '/') {
       targetURL = archive.paths.siteAssets + '/index.html';
       statusCode = 200;
     } else {
       // check if url in archive!
         // e.g /www.google.com
+
       archive.isUrlArchived(req.url, function(fileExists) {
         // no idea when this will run...
         if (!fileExists) {
           statusCode = 404;
         }
+
         // if found, run readFile to nab the index html
         // else, send back loading.html
       });
